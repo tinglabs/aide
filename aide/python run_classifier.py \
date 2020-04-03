@@ -1,0 +1,450 @@
+python run_classifier.py \
+	--task_name=MRPC \
+	--do_train=true \
+	--do_eval=true \
+	--data_dir=$MRPC_DIR \
+	--vocab_file=$BERT_BASE_DIR/vocab.txt \
+	--bert_config_file=$BERT_BASE_DIR/bert_config.json \
+	--init_checkpoint=$BERT_BASE_DIR/bert_model.ckpt \
+	--max_seq_length=128 \
+	--train_batch_size=8 \
+	--learning_rate=2e-5 \
+	--num_train_epochs=3.0 \
+	--output_dir=./temp/mrpc_output/
+
+
+	没见过的词如何处理
+什么时候run init_op
+
+
+https://storage.googleapis.com/albert_models/albert_base_zh.tar.gz
+
+https://storage.googleapis.com/albert_zh/albert_base_zh_additional_36k_steps.zip
+https://storage.googleapis.com/albert_zh/albert_base_zh.zip
+
+https://storage.googleapis.com/albert_models/albert_base_v2.tar.gz
+
+1. 或负例不能选子孙或者祖先
+2. 父子节点相似度设为0.5
+3. 换loss，度量学习loss，单文本输入
+
+
+- 观察预测随step的变化：大体上，随训练逐渐好转，但为啥0.9999这么多
+- 观察随neg_x的变化
+- 观察随训练集大小的变化：数据集增大确实好转许多，但0.999太多
+- 观察mxh数据集
+
+用rank median来决定是否终止训练
+
+albert 比 bert稍差：128-32，体现在 高血压 的预测
+似乎batch size增大使得效果下降：mxh，128-32 > 1024-32，体现在 出牙过早、点彩妆谷歌、少汗；正在重跑epoch 20
+哪个数据集好？mxh > ChipCui (128-32)
+
+尝试度量学习
+拿结果：albert-HpoCui, albert-CuiChip-neg10, bert-CuiBgChip, bert-mxh
+
+d01 bert_syn2 mxh bert-ddml-128-20
+d01 bert_syn3 mxh albert-ddml-128-20
+
+d02 bert_syn mxh albert-ddml-128-32
+
+max_len32优于20；1024dim优于256；bs1024优于128
+测一下tau1.5
+测一下bert
+搞一搞训练集，找找有没有同义词
+
+补充实验表：
+1. pumc的不同 segment 
+2. HPO set overlap；IC加权的overlap
+3. 画embedding 图
+4. 加上与phenomizer的对比？当phenomizer没有检索出来相应的疾病时，中位数取疾病数量/2
+
+词典中可加入词条-定义对
+
+词典精确匹配 + 对于剩下的没有匹配的句子，用bert匹配
+
+python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-HpoChip-128-32-fc1024-neg1 --gpu 1 --epoch 20
+
+查一下new england/machine learning
+
+python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-Hpo_E_SD_BGD_pc_Chip_sim0.2_0.6_200000-neg_hpo-pos_hpo-1024-32-fc1024-neg5 --gpu 1 --epoch 20
+
+python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-Hpo_E_SD_BGD_pc_Chip-neg_hpo-pos_hpo-1024-32-fc1024-neg5 --gpu 1 --epoch 40
+
+'PUMC_CHPO_UMLS(BG)_E' (delete bug)：
+8.5 8 11.5 8 16 9 6.5 
+
+'PUMC_CHPO_UMLS(BG)_DICT_E' (delete bug)：
+6.5 9 8.5 6 6.5 6.5 6 
+
+一些错误：
+未重视 ->高档远视 （0075）
+精神、睡眠、食欲可 -> 嗜睡 （0075）
+查体：神清语利 -> 躁动
+构音清楚 -> 肺啰音
+半月前 -> 子宫出血
+凝血：xxxx -> 凝血因子活化异常
+再次出现胸闷憋气 -> 呼吸模式异常
+窦性心律不齐 -> 窦性心律过速 （53）
+有ICD植入指征 ->  昏迷
+双肺呼吸音清 -> 异常呼吸音
+阿斯综合征 -> 阿尔茨海默病
+尿量同前 -> 等渗尿
+为进一步诊治入院 -> 跨阈步态
+皮试阳性 -> 类风湿因子阳性
+药物性肝损可能性大 -> 间歇性肝肿大
+四肢远端皮肤颜色加深、指甲发白伴双足浮肿 -> 孕妇血清α-甲胎蛋白水平升高
+不能独立行走 -> 逐行无法行走
+肌电图仍未上下肢神经源性损害 -> 肌电图:复合肌肉动作电位对神经重复刺激的递减反应
+同时双下肢浮肿明显 -> 胫前粘液性水肿
+不能完全成形 -> 智能衰退
+未系统治疗及监测血糖 -> 血糖浓度异常 (26)
+余四肢肌力V-级 -> 四肢肌肉乏力
+胆囊多发结石 -> 胆囊穿孔
+RD治疗后 -> 治疗性流产
+此时活动耐量为步行3层楼后出现气促 -> 跨阈步态
+半个月前来我院复查胸部CT -> 肺动脉瓣关闭不全
+予输液治疗2周后 -> 输精管形态异常
+行双侧颌下腺摘除术 -> 皮埃尔 - 罗宾序列
+多次行青霉素皮试为阳性 -> 闭目难立征阳性
+
+删除包含英文？
+引入近义词增强？
+停用词增强？
+Context 增强
+
+可能是句子太长的问题；如何缩减句子长度？或者在训练时增加句子长度？锚框
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-tau2.5-1024-32-fc1024', 15000
+dict_bert CHPO:
+0.9: 5 7.5 6.5 7.5 9 5 5.5 
+0.95: 5.5 7 6 8 12.5 5 6
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-tau2.5-1024-32-fc1024', 9000
+dict_bert CHPO:
+0.9: 6.5 9 7.5 9.5 
+1.0: 5 7.5 6.5 8.5 
+model_name, global_step = 'albertTinyDDMLSim-CuiPos30000_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 10500
+0.9: 6 5 6 8.5 18.5 6.5 13.5
+model_name, global_step = 'albertTinyDDMLSim-CuiPos30000_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 17500
+0.9: 5.5 6 5.5 7.5 12 5 7.5
+model_name, global_step = 'albertTinyDDMLSim-CuiPos10000_Ana_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 7500:
+0.9: 5.5 6 6 8.5 10 6 ...
+model_name, global_step = 'albertTinyDDMLSim-CuiPos10000_Ana_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 17000:
+0.9: 6.5 5 6 6 7
+
+
+model_name, global_step = 'albertTinyDDMLSim-NegSSim50000_0.2_0.5_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 6500 
+dict_bert:
+0.8: 6.5 6 8 12 8 7 6.5 
+0.9: 6 9 8 8.5 12 7 8
+0.95: 7 9.5 7 9.5 13.5 4.5 10.5
+'albertTinyDDMLSim-NegSSim50000_0.2_0.5_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 12000
+0.9: 5 6.5 7 7 16 6 6 
+1.0: 6.5 7.5 6.5 8.5 21.5 6 17
+
+model_name, global_step = 'albertTinyDDMLSim-Ctx_Ana_AN_Hpo_N_SD20_BGD20_PC_C0-2-1024-32-fc1024', 10000
+dict_bert:
+0.9: 4.5 6 6.5 5 14.5 5 7 
+
+model_name, global_step = 'albertTinyDDMLSim-Ctx_Ana_AN_Hpo_N_SD30_BGD30_PC_C0-1024-32-fc1024', 10000
+dict_bert:
+0.85: 5 5 4 5.5 5.5 4.5 5.5 
+0.9: 4.5 4.5 4 6 6.5 4 4 (牛逼)
+0.95: 5 6 4.5 6 7.5 3.5 5.5 
+pumc_2000:
+0.9: 9 8 9 14 7 ...
+
+早上起来尝试新跑的几个模型；该确定结果了；把window改成标点再切分？;写抽样游戏
+
+model_name, global_step = 'albertTinyDDMLSim-Ctx10000_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 8000
+dict_bert CHPO: 
+0.8: 6 6.5 7 8 13 4 7.5
+0.9: 6.5 7 7.5 6.5 11 7 12.5
+model_name, global_step = 'albertTinyDDMLSim-Ctx10000_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 18000
+dict_bert CHPO: 
+0.8: 7.5 8 9
+0.9: 6.5 7 6.5 23 9.5 ...
+
+model_name, global_step = 'albertTinyDDMLSim-Com10000_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 10000
+0.9: 6 5.5 6 8.5 12 7 
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD30_BGD30_PC_C0-1024-32-fc1024', 10000
+0.9: 6 6 7 9 14.5 5 6
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD30_BGD30_PC_C0-1024-32-fc1024', 20000
+0.9: 5 5.5 7.5 5 8.5 4 5 (还不错)
+0.95: 5 5.5 7 5 12 4 8
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD30_BGD30_PC_C0-1024-32-fc1024', 13500
+0.9: 5 4 7.5 5.5 9 6.5 6
+0.95: 4.5 6.5 6 ... 5.5 9
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD10_BGD10_PC_C0-1024-32-fc1024', 10000
+0.9: 7 9 6 
+
+pvalue; embedding; 换jaccard
+
+UMLS 语义类型？
+
+d01 rd: sent
+d01 rd2: 
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3_rerun-1024-32-fc1024', 11000
+dict_bert:
+0.9: 4.5 6 5 11 5.5 5 5
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-4-1024-32-fc1024', 12500
+dict_bert:
+0.85: 6.5 5.5 5 7.5 8.5 5 5
+0.9: 4.5 5 5 5 7.5 4.5 5 (这个可以)
+0.95: 5 5.5 5 6.5 9.5 4.5 7.5
+pumc_2000:
+0.9: 8 10 9 15 ...
+精准顿号切分：
+0.9: 5.5 6 5.5 6.5 12.5 4 8.5
+
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-1024-32-fc1024', 16000
+0.9: 6 6 4.5 9 8 6 
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-1024-32-fc1024', 8000
+dict_bert: (妈的这是个抽样游戏。。。)
+0.9: 4.5 7.5 4 7.5 9.5 5 6.5 
+0.95: 4.5 7 3.5 8 14.5 4 8 (这个还行)
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-1024-32-fc1024', 10000
+0.85: 4 8 5 6 8.5 5
+0.9: 3.5 5 4 6 11.5 3 6.5
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-1024-32-fc1024', 12000
+0.85: 5 7 6 8 5.5 4.5 4
+0.9: 4 7.5 5 7 10 4 6.5
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-1024-32-fc1024', 11000
+dict_bert (CHPO):
+0.8: 5.5 7 7.5 8 6.5 5
+0.85: 4.5 5.5 7 9.5 8.5 6.5 5
+0.85 (stopwords -> ' '; \d -> ' '): 5 6 4.5 7.5 8 5.5 5.5
+0.87: 4.5 5.5 5.5 7 6 6 6 
+0.88: 4.5 5.5 5.5 ... 6.5 5 5.5
+0.89: 4 5.5 4.5 6 6.5 4.5 6
+0.9: 3.5 5 4.5 6 7 4 4.5 （这个太牛逼；f10.66 recall0.74）
+0.9: 3.5 4.5 4.5 6 7 4 5.5
+
+0.9 (stopwords -> ' '): 3 6 3 6.5 5.5 6 4 6
+0.9 (stopwords -> ' '; [a-zA-z] -> ' '): 4.5 5.5 5.5 6 8 4 6
+0.9 (stopwords -> ' '; [a-zA-z] -> ' '; 日期 -> ' '): 5 6.5 ... 6 5
+0.9 (stopwords -> ' '; \d -> ' '): 5 6 4 5 5 5.5 5
+0.9 (stopwords -> ' '; \d -> ' '): 5 5 6 4 5 5.5 5.5
+0.85 (stopwords -> ' '; \d -> ' '): 5 5.5 5.5 6.5 6.5 6 6
+0.95 (stopwords -> ' '; \d -> ' '): 4 5.5 4.5 ... 15.5 4.5
+0.9 (stopwords -> ' '; \d -> ' '; 标点 -> ' '): 5.5 4.5 5.5 6.5 3.5 5
+0.9 (stopwords -> ' '; 药品 -> ' '): 3.5 5.5 3.5 6 11.5 4 6.5
+0.91: 3 4.5 4 6 10.5 4 6
+0.95: 4 6 5 5.5 8 4 8 
+dict_bert (CHPO) 直接顿号切分:
+0.8: 7 8.5 9 ...
+0.9: 6 6 4.5 7 18.5 5 16.5
+dict_bert (CHPO) 精准顿号切分:
+0.85： 5.5 5 8 11 ...
+0.9: 3.5 3.5 6 5.5 11 3.5 6.5 (这也是很牛逼)
+dict_bert (CHPO) 精准顿号切分; PUMC_2000_DICT_BERT_ALBERT_DDML_TUNE
+0.9: 4 5 5 9 3 5
+控制库欣 (913)：
+0.8 all: 
+0.85:  
+0.9: 8 8 9 16 6 10 | 8 8 8 14 6 
+0.9 stopwords: 7 8 9 8 13 6 8
+0.9 (stopwords -> ' '): 7 8 8 8 13 6 8
+0.9 (stopwords -> ' '; \d -> ' '): 8 8 7 13 6 8
+0.95: 
+dict_bert (CHPO_SOURCE_SYN):
+0.85: 5 6 11 ...
+0.9: 5 6 9.5 8.5 9 6 7.5
+0.95: 6 5.5 9.5 ... 4.5 8
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-1024-32-fc1024', 14000
+0.9: 7.5 6.5 7 8.5 8.5 8 7 
+0.95: 6 5 7 7 8.5 6 6.5 
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-1024-32-fc1024', 16000
+0.9: 5.5 8 6 8 13 6 10.5 
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_Def_N_SD20_BGD20_PC_C0-1024-32-fc1024', 11000
+0.9: 7 7 6 8 12.5 6.5 9.5
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_Eng_N_SD20_BGD20_PC_C0-1024-32-fc1024', 17500
+0.85: 5.5 6 6.5 7 9 8 4.5 
+0.87: 5 6.5 ...
+0.9: 7 4.5 5.5 9 5 4
+
+# model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_Eng_N_SD20_BGD20_PC_C0-1024-32-fc1024', 11000
+0.9: 6 7 6.5 ... 6.5 6
+
+术语-定义增强；英文增强；
+准入控制：可能性大等
+
+5 6 6.5 6.5 7.5 4 5 (stopwords -> ' ' + 日期 -> '') 
+4.5 6 5.5 6 7.5 4 4 (日期 -> '') 
+3.5 6 4.5 6 6.5 4 6 (stopwords -> ' ') 
+6 6 7 9 11 5 6.5 (0.9, w=12)
+
+
+topwords当前最好：
+src_term_txt = os.path.join(DATA_PATH, 'preprocess', 'pumc_2000', 'topwords-len12-freq1.0-lamb0.0001-vocab.txt')
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 14000
+score_thres, match_type = -0.65, 'best'
+
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 14000
+score_thres, match_type = -0.7, 'best'
+len8-freq1.0: 4 5 4 7 20.5
+len8-freq2.0: 4 6.5 4 7 19.5
+len8-freq4.0: 5.5 7 7 7.5 26.5
+len12-freq0.5: 4 5 4 5.5 13
+len12-freq0.5: 4 4.5 4 7 12
+len12-freq1.0: 4 4 4 6 14 4 8.5 (recall 0.8; f1 0.6)
+len16-freq1.0: 4 4.5 4 6 15.5
+len12-freq2.0: 4 5.5 4 7.5 14.5
+score_thres, match_type = -0.65, 'best':
+len12-freq0.5: 5 5 5 7 7 5 8
+len12-freq1.0: 5 5 4.5 5 6 4.5 8.5
+len12-freq2.0: 5 6 6 7 7 6 8
+
+topwords-len12-freq1.0:
+0.6: 6 5.5 4 5 8.5 5 7 
+0.65: 5 5 4 5 6 3.5 8 (可复现)
+0.65_run2_umls_bg: 5 5 4.5 5 6 4.5 8.5
+65_chpo: 3 4.5 4.5 8 8.5 4 5.5 
+0.7: 4 4 4 6 14 4 8.5 (recall 0.8; f1 0.6)
+0.7_chpo: 4 4.5 4 7.5 15 4.5 8
+0.7_run2_umls_bg: 4 4 4 6.5 11.5 4.5 8
+0.75: 6 5 4.5 22 5 9.5 
+0.8: 5 5.5 5 6.5 49 4.5 21 (recall 0.81; f1 0.53)
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-1024-32-fc1024', 11000
+0.65_chpo: 5.5 8 6.5 7 13 5.5 8.5 
+0.65_umls: 7 8 6 6 9.5 6 7
+0.65_umls_bg: 7.5 8 7 6 10.5 6 8 
+
+0.65, 'all': 5.5 5.5 5.5 9.5 60.5 5.5 27.5
+0.65, 'all': 6 5 6.5 8 23.5 6.5 13.5 
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-3-1024-32-fc1024', 11000
+topwords:
+0.65: 7.5 8 7 6 10.5 6 8
+
+
+model_name, global_step = 'albertTinyDDMLSim-Ana_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 12000
+dict_bert CHPO sent:
+0.8: 4 6 6 8 10.5 5.5 4 (牛逼)
+0.9: 5 7 6 7 6.5 3.5 7 (牛逼)
+0.95: 5.5 7 6 8 10 4.5 8
+model_name, global_step = 'albertTinyDDMLSim-Ana_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 17000
+dict_bert CHPO sent:
+0.8: 4.5 6 5.5 8 8 6 5
+0.85: 4 6.5 5.5 6.5 8 6.5 5 
+0.9: 5 7 5.5 7 9 4 5.5 (牛逼)
+0.95: 6 6.5 5 6.5 10.5 4 13 
+
+看一下是哪些东西预测不出来，跟topwords相比；以及有哪些错误，怎么解决
+
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-2-1024-32-fc1024', 7000
+dict_bert CHPO sent:
+0.8: 5.5 7 6 8 10 4.5 8
+0.9: 5 6 4 8 9 5 6.5 (牛逼)
+0.95: 7.5 8 5 8 12 5 6.5 
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-2-1024-32-fc1024', 17000
+0.8: 5 4 7 7.5 8 6.5 6 (牛逼)
+0.9: 7 6.5 4.5 7.5 10.5 5.5 7.5
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 10000
+dict_bert CHPO sent:
+0.8: 7 8 7.5 6 6 7 7
+0.9: 7 7 7 7 10 6 6
+model_name, global_step = 'albertTinyDDMLSim-AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 14000
+dict_bert CHPO sent:
+0.8: 5 6.5 7 8 7.5 6.5 6.5
+0.9: 6.5 6.5 6.5 5.5 8 7.5 7
+1.0: 7 10.5 8 7 20.5 7 16.5
+dict_bert CHPO_UMLS:
+0.8: 8 8.5 9 7 15 6 8
+0.9: 8 9.5 9 8 
+dict_bert CHPO w=4 (all ngram):
+0.65: 6 8 8 8.5 16 6 8 
+dict_bert CHPO w=4 (best ngram):
+0.65: 5.5 8.5 7.5 6.5 12 5 5.5
+0.7: 5.5 7 5 7.5 16 4 7.5
+0.8: 5.5 6 6 6.5 26.5 4 15.5
+dict_bert CHPO w=6 (best ngram):
+0.65: 8.5 7.5 6 9 11 4.5 5.5
+0.7: 7 6.5 6.5 10.5 10 6 6
+0.75: []
+
+dict_bert CHPO w=(4, max_len) (best ngram):
+0.65: 5.5 5.5 6.5 7.5 12 3.5 5
+
+model_name, global_step = 'albertTinyDDMLSim-Ctx10000_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 4000
+0.8: 7.5 7.5 7 9.5 15.5 6.5 8.5
+model_name, global_step = 'albertTinyDDMLSim-Ctx10000_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 8000
+dict_bert CHPO sent:
+0.75: 5.5 6 5 7.5 15.5 4.5 6 
+0.8: 5.5 5.5 5 7.5 10.5 3 7.5 (牛逼)
+0.85: 5.5 4.5 6 6.5 9.5 5 7.5
+dict_bert CHPO w=4:
+0.8: 9 11.5 9.5 8.5 
+dict_bert CHPO w=8:
+0.8: 5 8 7 8.5 26.5 6 10.5
+dict_bert CHPO w=10:
+0.8: 5 6 6.5 8.5 12.5 5 7.5 44.5 5.5 24.5
+model_name, global_step = 'albertTinyDDMLSim-Ctx10000_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 12000
+dict_bert CHPO sent:
+0.8: 7 7 6 6.5 15 6 8.5 
+0.9: 5.5 6.5 7.5 5.5 21 4.5 8.5
+dict_bert CHPO w=6:
+0.8: 6 8.5 7 5 9.5 6 7.5 
+dict_bert CHPO w=8:
+0.8: 5 8 7 8.5 26.5 
+model_name, global_step = 'albertTinyDDMLSim-Ctx10000_AN_Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 18000 
+0.8: 7.5 8 9 10 15.0 6 9
+0.9: 6.5 7 6.5 8 33.5 5 10.5
+
+model_name, global_step = 'albertTinyDDMLSim-mxh_repeat_pc-1024-32-fc1024', 4000
+0.65: 7.5 8.5 7 5.5 49.5 4.5 20.5
+
+model_name, global_step = 'albertTinyDDMLSim-Hpo_N_SD20_BGD20_PC_C0-1024-32-fc1024', 12000
+0.65: 8.5 9.5 5 6.5 18 6.5 11
+
+jaccard-0.3, CHPO:
+0.3: 17.5 22.5 12 18.5 1493 11.5 212.5
+0.4: 11 15 8 9.5 65.5 7 
+0.45: 11 11.5 10 8.5 54 7 34
+0.5: 11 13.5 10 10 14 10.5 12.5
+0.6: 11 20 10.5 11.5 
+
+naive_count_mincount3:
+0.6: 8 7 6 6 7.5 
+0.7: 6 5.5 4.5 7 13.5
+0.8: 5.5 6 4.5 11.0 44.5
+
+naive_count_mincount4:
+0.7: 6 6 4.5 7 11 5.5 7
+
+naive_count_mincount6:
+0.7: 6.5 7.5 6 7 9 6 9.5
+
+naive_count_mincount8:
+0.7: 8 5.5 6.5 6 6
+
+
+取最高分
+python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-Cui_S0_20000_AN_Hpo_ND_Nv2_S20_BG20_PC_C0-1024-32-fc1024 --gpu 1 --epoch 20
+
+d01 bert_syn
+python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-mxh-1024-32-fc1024-tau1.5 --gpu 1 --epoch 10 --train_path /home/yhuang/RareDisease/bert_syn_project/data/preprocess/dataset/mxh/train.csv --tau 1.5 && python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-mxh-1024-32-fc1024-tau1.1 --gpu 1 --epoch 10 --train_path /home/yhuang/RareDisease/bert_syn_project/data/preprocess/dataset/mxh/train.csv --tau 1.1 && python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-mxh-1024-32-fc1024-tau3.0 --gpu 1 --epoch 10 --train_path /home/yhuang/RareDisease/bert_syn_project/data/preprocess/dataset/mxh/train.csv --tau 3.0 && python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-mxh-1024-32-fc1024-tau5.0 --gpu 1 --epoch 10 --train_path /home/yhuang/RareDisease/bert_syn_project/data/preprocess/dataset/mxh/train.csv --tau 5.0
+
+d02
+python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-mxh_parents_parents-1024-32-fc1024 --gpu 1 --epoch 10 --train_path /home/yhuang/RareDisease/bert_syn_project/data/preprocess/dataset/hpo_parent_child-mxh900k-len64-selfFalse-neg1.0-sim0.0-swapFalse-neg_hpoFalse-pos_hpoFalse-train1.0-spnall-delrFalse/train.csv && python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-mxh_brothers-1024-32-fc1024 --gpu 1 --epoch 10 --train_path /home/yhuang/RareDisease/bert_syn_project/data/preprocess/dataset/hpo_brothers-mxh900k-len64-selfFalse-neg1.0-sim0.0-swapFalse-neg_hpoFalse-pos_hpoFalse-train1.0-spnall-delrFalse/train.csv && python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-mxh_neg_hpo_enhance-1024-32-fc1024 --gpu 1 --epoch 10 --train_path /home/yhuang/RareDisease/bert_syn_project/data/preprocess/dataset/hpo_neg_enhance-mxh900k-len64-selfFalse-neg1.0-sim0.0-swapFalse-neg_hpoFalse-pos_hpoFalse-train1.0-spnall-delrFalse/train.csv
+
+d04
+python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-Hpo_E_SD_BGD_Neg-neg_hpo-pos_hpo-1024-32-fc1024-neg10 --gpu 1 --epoch 20 --train_path /home/yhuang/RareDisease/bert_syn_project/data/preprocess/dataset/chip-hpo_exact-hpo_source_dict_syn-hpo_to_source_bg_dict_syn-len64-selfFalse-neg10.0-sim0.0-swapFalse-neg_hpoTrue-pos_hpoTrue-train1.0-spnall-delrFalse/train.csv && python bert_syn/script/run_bert_ddml_sim.py --model_name albertTinyDDMLSim-Hpo_E_SD_BGD_Chip_Neg-neg_hpo-pos_hpo-1024-32-fc1024-neg10 --gpu 3 --epoch 20 --train_path /home/yhuang/RareDisease/bert_syn_project/data/preprocess/dataset/chip-hpo_exact-hpo_neg_enhance-hpo_source_dict_syn-hpo_to_source_bg_dict_syn-len64-selfFalse-neg10.0-sim0.0-swapFalse-neg_hpoTrue-pos_hpoTrue-train1.0-spnall-delrFalse/train.csv
+
+albertTinyDDMLSim-Hpo_E_S_BG_Neg-neg_hpo-pos_hpo-1024-32-fc1024-neg10
+茂盛—枯
+
+
+反义词增强（正常、异常；浓密、稀少；减弱、活跃）；否定词增强
+
+增强：词所在的句子和词，pos
+
+去重一下看看
