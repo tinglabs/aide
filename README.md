@@ -86,3 +86,4 @@ encoder = AIDE(name='test_aide', save_folder='test_aide')
 embedding = encoder.fit_transform(X, config) # np.ndarray; (n_samples, config.mds_units[-1])
 ```
 
+ 
